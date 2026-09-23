@@ -5,7 +5,6 @@
 
 class conveyor{
 public:
-    conveyor();
     conveyor(std::uint8_t port);
     void run(int direction);
     int getRunning();

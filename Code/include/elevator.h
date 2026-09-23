@@ -5,22 +5,35 @@
 
 class elevator{
 public:
-    enum state{
-        manualControl,
-        movingToSetpoint,
-        atSetpoint
+    enum mode{
+        manual,
+        automatic
     };
-public:
-    elevator(std::uint8_t port);
-    void update(int time);
-    void runManual(double input);
-    void moveToSetpoint(double setpoint);
-    void resetPosition(); //Move to zero position and reset encoder
-    state getState();
+
+    elevator(std::uint8_t left_port, std::uint8_t right_port);
+    void update();
+
+    void run(int direction);
+    int getRunning();
+    void slow(bool pSlow);
+
+    void goToPosition(float position);
+    void zeroPosition();
+    float getCurrentPosition();
+
+    bool isAtPosition();
+    mode getMode();
+
 private:
-    pros::Motor elevatorMotor;
-    state mState;
-    double mSetpoint;
+    pros::Motor elevatorMotorLeft;
+    pros::Motor elevatorMotorRight;
+    int mRunning;
+    bool mSlow;
+
+    float mCurrentPosition;
+    float mTargetPosition;
+
+    mode mMode;
 };
 
 #endif
