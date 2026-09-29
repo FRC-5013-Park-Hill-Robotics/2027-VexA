@@ -12,7 +12,6 @@ namespace ports_const{
     const unsigned int left_elevator = 18;
 
     const unsigned int intake = 19;
-
 };
 
 namespace drive_const{
@@ -22,8 +21,24 @@ namespace drive_const{
 namespace elevator_const{
     const pros::MotorGears gearset = pros::MotorGears::blue;
     const pros::MotorEncoderUnits units = pros::MotorEncoderUnits::degrees; //Setpoints in degrees
-    const int speed = 100;
-    const int slow_speed = 50;
+    const int speed = 600;
+    const int slow_speed = 300;
+    const float PIDF[4] = {0.02, 0, 0, 20};
+
+    const float max_position = 3500; // Maximum position in degrees
+    const float min_position = 0; // Minimum position in degrees
+    const float position_tolerance = 20; // abs error when it stops moving
+
+    const float setpoints[8] ={
+        0, 
+        400, 
+        800, 
+        1200, 
+        1600, 
+        2000, 
+        2400, 
+        2800 
+    };
 };
 
 namespace conveyor_const{

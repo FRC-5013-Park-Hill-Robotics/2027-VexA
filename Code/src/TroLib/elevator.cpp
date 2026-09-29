@@ -9,30 +9,35 @@ elevator::elevator(std::uint8_t left_port, std::uint8_t right_port)
 , mMode(manual)
 , mCurrentPosition(0)
 , mTargetPosition(0)
+, mCurrentSetpointIndex(0)
+, mPID(elevator_const::PIDF[0], elevator_const::PIDF[1], elevator_const::PIDF[2], elevator_const::PIDF[3])
 {
     mRunning = 0;
-    elevatorMotorLeft.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
-    elevatorMotorRight.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    elevatorMotorLeft.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
+    elevatorMotorRight.set_brake_mode(pros::E_MOTOR_BRAKE_COAST);
 
     elevatorMotorLeft.set_reversed(false);
     elevatorMotorRight.set_reversed(true);
+
+    mPID.setOutputLimits(-1, 1); // Never more that 100% power
 }
 
 void elevator::update()
 {
+    mCurrentPosition = -elevatorMotorLeft.get_position();
+    
     if(mMode == automatic){
-        mCurrentPosition = (elevatorMotorLeft.get_position() + elevatorMotorRight.get_position()) / 2.0;
-        
-        int error = mTargetPosition - mCurrentPosition;
+        float error = mTargetPosition - mCurrentPosition;
 
-        if(std::abs(error) < 5){ // If within 5 degrees of target
+        pros::lcd::set_text(1, "Elevator Output: " + std::to_string(error));
+
+        if(std::abs(error) < elevator_const::position_tolerance){ 
             elevatorMotorLeft.move_velocity(0);
             elevatorMotorRight.move_velocity(0);
-            mRunning = 0;
         } else {
-            int direction = (error > 0) ? 1 : -1;
-            elevatorMotorLeft.move_velocity(direction * elevator_const::slow_speed);
-            elevatorMotorRight.move_velocity(direction * elevator_const::slow_speed);
+            double output = -mPID.getOutput(mCurrentPosition, mTargetPosition); // Assuming update is called every 20ms
+            elevatorMotorLeft.move_velocity(output * elevator_const::speed);
+            elevatorMotorRight.move_velocity(output * elevator_const::speed);
         }
     }
 }
@@ -46,8 +51,6 @@ void elevator::run(int direction)
         elevatorMotorRight.move_velocity(0);
     }
     else if(direction == 1){
-        //elevatorMotorLeft.move_velocity(-500);
-        //elevatorMotorRight.move_velocity(-500);
         if(mSlow){
             elevatorMotorLeft.move_velocity(elevator_const::slow_speed);
             elevatorMotorRight.move_velocity(elevator_const::slow_speed);
@@ -57,7 +60,6 @@ void elevator::run(int direction)
         }
     }
     else if(direction == -1){
-        
         if(mSlow){
             elevatorMotorLeft.move_velocity(-elevator_const::slow_speed);
             elevatorMotorRight.move_velocity(-elevator_const::slow_speed);
@@ -84,6 +86,25 @@ void elevator::goToPosition(float position)
     mTargetPosition = position;
 }
 
+void elevator::goToSetpoint(int setpoint_index)
+{
+    if(setpoint_index >= 0 && setpoint_index < std::size(elevator_const::setpoints)){
+        mMode = automatic;
+        mTargetPosition = elevator_const::setpoints[setpoint_index];
+        mCurrentSetpointIndex = setpoint_index;
+    }
+}
+
+void elevator::incrementSetpoint(int setpoint_index_increment)
+{
+    int newSetpointIndex = mCurrentSetpointIndex + setpoint_index_increment;
+    if(newSetpointIndex >= 0 && newSetpointIndex < std::size(elevator_const::setpoints)){
+        mMode = automatic;
+        mTargetPosition = elevator_const::setpoints[newSetpointIndex];
+        mCurrentSetpointIndex = newSetpointIndex;
+    }
+}
+
 void elevator::zeroPosition()
 {
 }
@@ -93,8 +114,22 @@ float elevator::getCurrentPosition()
     return mCurrentPosition;
 }
 
+float elevator::getTargetPosition()
+{
+    return mTargetPosition;
+}
+
+int elevator::getCurrentSetpointIndex()
+{
+    return mCurrentSetpointIndex;
+}
+
 bool elevator::isAtPosition()
 {
+    float error = mTargetPosition - mCurrentPosition;
+    if(std::abs(error) < elevator_const::position_tolerance){ 
+        return true;
+    }
     return false;
 }
 

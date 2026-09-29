@@ -5,16 +5,15 @@
 #include <random>
 
 #include "constants.h"
-#include "conveyor.h"
-
-#include "elevator.h"
-
-#include "piston.h"
+#include "TroLib/conveyor.h"
+#include "TroLib/elevator.h"
+#include "TroLib/piston.h"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 conveyor mIntake(ports_const::intake);
 elevator mElevator(ports_const::left_elevator, ports_const::right_elevator);
+piston mClaw('A');
 
 lemlib::ControllerSettings lateral_controller(8, // proportional gain (kP)
                                               0, // integral gain (kI)
@@ -46,22 +45,22 @@ pros::MotorGroup right_mg({11, 12, 17}, drive_const::gearset);  // + for forward
 lemlib::Drivetrain drivetrain(&left_mg, // left motor group
                               &right_mg, // right motor group
                               11.5, // track width (in)
-                              lemlib::Omniwheel::NEW_325, // using new 4" omnis
-                              300, //Drivetrain rpm
+                              lemlib::Omniwheel::NEW_275,
+                              480, //Drivetrain rpm
 							  2 //drift
 							  );
 
 pros::Imu imu(ports_const::imu);
 
-// pros::Rotation h_rotation_sensor(5);
-// pros::Rotation v_rotation_sensor(4);
+pros::Rotation v_rotation_sensor(-6);
+pros::Rotation h_rotation_sensor(-7);
 
-// lemlib::TrackingWheel horizontal_tracking_wheel(&h_rotation_sensor, lemlib::Omniwheel::NEW_2, 3.5);
-// lemlib::TrackingWheel vertical_tracking_wheel(&v_rotation_sensor, lemlib::Omniwheel::NEW_2, 0);
+lemlib::TrackingWheel vertical_tracking_wheel(&v_rotation_sensor, lemlib::Omniwheel::NEW_2, -0.3);
+lemlib::TrackingWheel horizontal_tracking_wheel(&h_rotation_sensor, lemlib::Omniwheel::NEW_2, 2.5);
 
-lemlib::OdomSensors sensors(nullptr, //&vertical_tracking_wheel, // vertical tracking wheel 1
+lemlib::OdomSensors sensors(nullptr,//&vertical_tracking_wheel, // vertical tracking wheel 1
                             nullptr, // vertical tracking wheel 2
-                            nullptr, //&horizontal_tracking_wheel, // horizontal tracking wheel 1
+                            nullptr,//&horizontal_tracking_wheel, // horizontal tracking wheel 1
                             nullptr, // horizontal tracking wheel 2
 							&imu //inertia
 							);
@@ -73,67 +72,12 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
 						sensors // Odometry Sensors
 						);
 
-enum Color{
-	Red,
-	Blue,
-	None
-};
-
-enum Allignment{
-	Left,
-	Right,
-	Inches,
-	SoloWin
-};
-
-enum Type{
-	Match,
-	Skills,
-	Test
-};
-
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
  * All other competition modes are blocked by initialize; it is recommended
  * to keep execution time for this mode under a few seconds.
  */
-
-void displayOnLCD(const std::string& input) {
-    std::istringstream iss(input);
-    std::vector<std::string> words;
-    std::string word;
-
-    // Split input into words
-    while (iss >> word) {
-        words.push_back(word);
-    }
-
-    int maxLineLength = 39;
-    std::string currentLine;
-    int lineNumber = 1;
-
-    for (size_t i = 0; i < words.size(); ++i) {
-        // If adding this word exceeds maxLineLength
-        if (!currentLine.empty() && (currentLine.length() + 1 + words[i].length() > maxLineLength)) {
-            // Display current line
-            pros::lcd::set_text(lineNumber, currentLine);
-            lineNumber++;
-            currentLine = words[i]; // start new line with current word
-        } else {
-            // Add space if not the first word in line
-            if (!currentLine.empty()) {
-                currentLine += " ";
-            }
-            currentLine += words[i];
-        }
-    }
-
-    // Display any remaining text in currentLine
-    if (!currentLine.empty()) {
-        pros::lcd::set_text(lineNumber, currentLine);
-    }
-}
 
 void initialize() {
 	pros::lcd::initialize();
@@ -177,45 +121,82 @@ void competition_initialize() {}
  * from where it left off.
  */
 
-Type mType = Match;
-Color mColor = Red;
-Allignment mAllignment = Left;
+enum type{
+	Match,
+	Skills,
+	Test
+};
+
+
+// ----- ----- -----
+// CHANGE 
+// ----- ----- -----
+
+type mType = Match;
 
 void runSkill() {
 	
 }
 
-
 void autonomous() {
 	if(mType == Match){
-		int n = 0;
-		if(mAllignment == SoloWin){
-			n = -1;
-		}
-		if(mAllignment == Right){
-			n = 1;
-		}
-		if(mAllignment == Left){
-			n = -1;
-		}
+		mElevator.run(1);
+		chassis.moveToPoint(0, 5, 200, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(15, 14, 800, {.maxSpeed = 127}, true);
+		pros::delay(400);
+		mElevator.run(-1);
+		pros::delay(900);
+		mClaw.activate(true);
+		chassis.moveToPoint(1, 14, 400, {.forwards = false, .maxSpeed = 127}, false);
+		mElevator.run(0);
+		chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
+		pros::delay(200);
+		chassis.moveToPoint(0, -7, 1000, {.forwards = false,.maxSpeed = 127}, false);
 
-		if(mAllignment == Inches){
-			chassis.moveToPoint(0, -5, 2000, {.forwards = false}, false);
-		}
-		
-		else if(mAllignment == Left || mAllignment == Right){
-			
-		}
-		else if(mAllignment == SoloWin){
+		chassis.moveToPoint(11, 25, 1000, {.maxSpeed = 127}, false);
+		chassis.moveToPoint(15, 29, 1000, {.maxSpeed = 50}, false);
+		mClaw.activate(false);
+		mElevator.run(1);
+		pros::delay(200);
+		chassis.turnToHeading(175, 700, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(34, 15, 1500, {.maxSpeed = 127}, true);
+		pros::delay(900);
+		mElevator.run(-1);
+		pros::delay(500);
+		mClaw.activate(true);
 
-		}
-			
+		pros::delay(200);
+		mElevator.run(0);
+		chassis.moveToPoint(34, 20, 1500, {.forwards = false, .maxSpeed = 127}, false);
+		mElevator.run(-1);
+		chassis.turnToHeading(140, 1000, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(47, 9, 1500, {.maxSpeed = 127}, false);
+		chassis.moveToPoint(50, 6, 1500, {.maxSpeed = 50}, false);
+		mClaw.activate(false);
+		chassis.moveToPoint(55, 2, 1500, {.maxSpeed = 50}, false);
+		mElevator.run(1);
+		chassis.turnToHeading(270, 1000, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(35, 0, 1500, {.maxSpeed = 127}, true);
+		pros::delay(800);
+		mElevator.run(-1);
+		pros::delay(600);
+		mClaw.activate(true);
+		mElevator.run(0);
+
+		chassis.moveToPoint(45, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
 	}
 	if(mType == Skills){
 		runSkill();
 	}
 	if(mType == Test){
-		//chassis.turnToHeading(270, 1800, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(0, 5, 1000, {.maxSpeed = 50}, false);
+		chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(5, 5, 1000, {.maxSpeed = 50}, false);
+		chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(5, 0, 1000, {.maxSpeed = 50}, false);
+		chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(0, 0, 1000, {.maxSpeed = 50}, false);
+		chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
 	}
 }
 
@@ -233,9 +214,17 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+	bool mUpLateState = false;
+	bool mDownLateState = false;
+
 	while (true) {
-		//pros::lcd::print(1, "V Rotation Sensor: %i", v_rotation_sensor.get_position());
-		//pros::lcd::print(2, "Elevator Pose: ", mElevator.getCurrentPosition());
+		//pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
+		//pros::lcd::set_text(1, "Elevator Target: " + std::to_string(mElevator.getTargetPosition()));
+		// pros::lcd::set_text(2, "Elevator Setpoint: " + std::to_string(mElevator.getCurrentSetpointIndex()));
+		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mElevator.getTargetPosition()));
+
+		//pros::lcd::print(1, "Rotation Sensor H: %i", h_rotation_sensor.get_position());
+		//pros::lcd::print(2, "Rotation Sensor V: %i", v_rotation_sensor.get_position());
 
 		int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
@@ -243,33 +232,49 @@ void opcontrol() {
         // move the robot
         chassis.tank(leftY, rightY);
 
-		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-			mIntake.run(1);
-		}
-		else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-			mIntake.run(-1);
-		}
-		else{
-			mIntake.run(0);
-		}
-
-		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_UP)){
-			mElevator.run(1);
-		}
-		else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)){
-			mElevator.run(-1);
-		}
-		else{
-			mElevator.run(0);
-		}
-
-		// if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_X)){
-		// 	mElevator.goToPosition(1);
+		// if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
+		// 	mIntake.run(1);
 		// }
-		// else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-		// 	mElevator.goToPosition(-1);
+		// else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
+		// 	mIntake.run(-1);
+		// }
+		// else{
+		// 	mIntake.run(0);
+		// }
+
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)){
+			mClaw.toggle();
+		}
+
+		// Setpoint Elevator Control
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+		// 	mElevator.incrementSetpoint(1);
+		// }
+		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
+		// 	mElevator.incrementSetpoint(-1);
+		// }
+		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)){
+		// 	mElevator.goToSetpoint(0);
 		// }
 		// mElevator.update();
+
+		// Manual Elevator Control
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_UP)){
+			mElevator.run(1);
+			mUpLateState = true;
+		}
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)){
+			mElevator.run(-1);
+			mDownLateState = true;
+		}
+		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_UP) && mUpLateState){
+			mElevator.run(0);
+			mUpLateState = false;
+		}
+		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN) && mDownLateState){
+			mElevator.run(0);
+			mDownLateState = false;
+		}
 		
 		pros::delay(20);
 	}
