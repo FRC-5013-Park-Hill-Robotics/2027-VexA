@@ -8,12 +8,15 @@
 #include "TroLib/conveyor.h"
 #include "TroLib/elevator.h"
 #include "TroLib/piston.h"
+#include "TroLib/distanceSensor.h"
+#include "TroLib/timer.h"
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
-conveyor mIntake(ports_const::intake);
-elevator mElevator(ports_const::left_elevator, ports_const::right_elevator);
+//conveyor mIntake(ports_const::intake);
+elevator mElevator(ports_const::left_elevator, ports_const::right_elevator, ports_const::elevator_third);
 piston mClaw('A');
+distanceSensor mDistanceSensor(ports_const::distance_sensor, distanceSensor_const::tolerance);
 
 lemlib::ControllerSettings lateral_controller(8, // proportional gain (kP)
                                               0, // integral gain (kI)
@@ -72,12 +75,6 @@ lemlib::Chassis chassis(drivetrain, // drivetrain settings
 						sensors // Odometry Sensors
 						);
 
-/**
- * Runs initialization code. This occurs as soon as the program is started.
- *
- * All other competition modes are blocked by initialize; it is recommended
- * to keep execution time for this mode under a few seconds.
- */
 
 void initialize() {
 	pros::lcd::initialize();
@@ -91,35 +88,25 @@ void initialize() {
 	chassis.setPose(0, 0, 0);
 }
 
-/**
- * Runs while the robot is in the disabled state of Field Management System or
- * the VEX Competition Switch, following either autonomous or opcontrol. When
- * the robot is enabled, this task will exit.
- */
 void disabled() {}
 
-/**
- * Runs after initialize(), and before autonomous when connected to the Field
- * Management System or the VEX Competition Switch. This is intended for
- * competition-specific initialization routines, such as an autonomous selector
- * on the LCD.
- *
- * This task will exit when the robot is enabled and autonomous or opcontrol
- * starts.
- */
 void competition_initialize() {}
 
-/**
- * Runs the user autonomous code. This function will be started in its own task
- * with the default priority and stack size whenever the robot is enabled via
- * the Field Management System or the VEX Competition Switch in the autonomous
- * mode. Alternatively, this function may be called in initialize or opcontrol
- * for non-competition testing purposes.
- *
- * If the robot is disabled or communications is lost, the autonomous task
- * will be stopped. Re-enabling the robot will restart the task, not re-start it
- * from where it left off.
- */
+//Movement right before MUST be asynchronous
+void autoGrab(float timeout){
+	timer mTimer;
+	while(mTimer.time_has_passed(timeout) == false){
+		if(mDistanceSensor.getDigital()){
+			mClaw.activate(false);
+			chassis.cancelMotion();
+			pros::delay(100);
+			break;
+		}
+		else{
+			pros::delay(20);
+		}
+	}
+}
 
 enum type{
 	Match,
@@ -127,11 +114,9 @@ enum type{
 	Test
 };
 
-
 // ----- ----- -----
-// CHANGE 
+// CHECK EVERY TIME 
 // ----- ----- -----
-
 type mType = Match;
 
 void runSkill() {
@@ -139,6 +124,9 @@ void runSkill() {
 }
 
 void autonomous() {
+	if(mType == Skills){
+		runSkill();
+	}
 	if(mType == Match){
 		mElevator.run(1);
 		chassis.moveToPoint(0, 5, 200, {.maxSpeed = 50}, false);
@@ -154,8 +142,8 @@ void autonomous() {
 		chassis.moveToPoint(0, -7, 1000, {.forwards = false,.maxSpeed = 127}, false);
 
 		chassis.moveToPoint(11, 25, 1000, {.maxSpeed = 127}, false);
-		chassis.moveToPoint(15, 29, 1000, {.maxSpeed = 50}, false);
-		mClaw.activate(false);
+		chassis.moveToPoint(17, 31, 1000, {.maxSpeed = 50}, true);
+		autoGrab(600);
 		mElevator.run(1);
 		pros::delay(200);
 		chassis.turnToHeading(175, 700, {.maxSpeed = 50}, false);
@@ -171,8 +159,8 @@ void autonomous() {
 		mElevator.run(-1);
 		chassis.turnToHeading(140, 1000, {.maxSpeed = 50}, false);
 		chassis.moveToPoint(47, 9, 1500, {.maxSpeed = 127}, false);
-		chassis.moveToPoint(50, 6, 1500, {.maxSpeed = 50}, false);
-		mClaw.activate(false);
+		chassis.moveToPoint(50, 6, 600, {.maxSpeed = 50}, true);
+		autoGrab(600);
 		chassis.moveToPoint(55, 2, 1500, {.maxSpeed = 50}, false);
 		mElevator.run(1);
 		chassis.turnToHeading(270, 1000, {.maxSpeed = 50}, false);
@@ -185,18 +173,17 @@ void autonomous() {
 
 		chassis.moveToPoint(45, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
 	}
-	if(mType == Skills){
-		runSkill();
-	}
 	if(mType == Test){
-		chassis.moveToPoint(0, 5, 1000, {.maxSpeed = 50}, false);
-		chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(5, 5, 1000, {.maxSpeed = 50}, false);
-		chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(5, 0, 1000, {.maxSpeed = 50}, false);
-		chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(0, 0, 1000, {.maxSpeed = 50}, false);
-		chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(0, 30, 3000, {.maxSpeed = 50}, true);
+		autoGrab(3000);
+		pros::delay(3000);
+		// chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
+		// chassis.moveToPoint(5, 5, 1000, {.maxSpeed = 50}, false);
+		// chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
+		// chassis.moveToPoint(5, 0, 1000, {.maxSpeed = 50}, false);
+		// chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+		// chassis.moveToPoint(0, 0, 1000, {.maxSpeed = 50}, false);
+		// chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
 	}
 }
 
@@ -218,10 +205,10 @@ void opcontrol() {
 	bool mDownLateState = false;
 
 	while (true) {
-		//pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
+		pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
 		//pros::lcd::set_text(1, "Elevator Target: " + std::to_string(mElevator.getTargetPosition()));
 		// pros::lcd::set_text(2, "Elevator Setpoint: " + std::to_string(mElevator.getCurrentSetpointIndex()));
-		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mElevator.getTargetPosition()));
+		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mDistanceSensor.getDistance()));
 
 		//pros::lcd::print(1, "Rotation Sensor H: %i", h_rotation_sensor.get_position());
 		//pros::lcd::print(2, "Rotation Sensor V: %i", v_rotation_sensor.get_position());
@@ -247,31 +234,31 @@ void opcontrol() {
 		}
 
 		// Setpoint Elevator Control
-		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
-		// 	mElevator.incrementSetpoint(1);
-		// }
-		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
-		// 	mElevator.incrementSetpoint(-1);
-		// }
-		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)){
-		// 	mElevator.goToSetpoint(0);
-		// }
-		// mElevator.update();
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+			mElevator.incrementSetpoint(1);
+		}
+		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
+			mElevator.incrementSetpoint(-1);
+		}
+		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)){
+			mElevator.goToSetpoint(0);
+		}
+		mElevator.update();
 
 		// Manual Elevator Control
-		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_UP)){
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
 			mElevator.run(1);
 			mUpLateState = true;
 		}
-		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN)){
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
 			mElevator.run(-1);
 			mDownLateState = true;
 		}
-		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_UP) && mUpLateState){
+		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1) && mUpLateState){
 			mElevator.run(0);
 			mUpLateState = false;
 		}
-		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_DOWN) && mDownLateState){
+		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2) && mDownLateState){
 			mElevator.run(0);
 			mDownLateState = false;
 		}

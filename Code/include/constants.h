@@ -10,8 +10,9 @@ namespace ports_const{
 
     const unsigned int right_elevator = 20;
     const unsigned int left_elevator = 18;
+    const unsigned int elevator_third = 19;
 
-    const unsigned int intake = 19;
+    const unsigned int distance_sensor = 21;
 };
 
 namespace drive_const{
@@ -23,11 +24,11 @@ namespace elevator_const{
     const pros::MotorEncoderUnits units = pros::MotorEncoderUnits::degrees; //Setpoints in degrees
     const int speed = 600;
     const int slow_speed = 300;
-    const float PIDF[4] = {0.02, 0, 0, 20};
+    const float PIDF[4] = {0.02, 0, 0, 0};
 
     const float max_position = 3500; // Maximum position in degrees
     const float min_position = 0; // Minimum position in degrees
-    const float position_tolerance = 20; // abs error when it stops moving
+    const float position_tolerance = 10; // abs error when it stops moving
 
     const float setpoints[8] ={
         0, 
@@ -52,6 +53,10 @@ namespace feedout_const{
     const pros::MotorGears gearset = pros::MotorGears::blue;
     const pros::MotorEncoderUnits units = pros::MotorEncoderUnits::degrees; //Setpoints in degrees
     const int speed = 600;
+};
+
+namespace distanceSensor_const{
+    const float tolerance = 40; //Distance in mm
 };
 
 namespace color_const{

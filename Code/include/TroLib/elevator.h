@@ -12,7 +12,7 @@ public:
         automatic
     };
 
-    elevator(std::uint8_t left_port, std::uint8_t right_port);
+    elevator(std::uint8_t left_port, std::uint8_t right_port, std::uint8_t third_port);
     void update();
 
     void run(int direction);
@@ -34,6 +34,7 @@ public:
 private:
     pros::Motor elevatorMotorLeft;
     pros::Motor elevatorMotorRight;
+    pros::Motor elevatorMotorThird;
 
     MiniPID mPID;
 
