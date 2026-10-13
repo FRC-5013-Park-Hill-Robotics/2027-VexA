@@ -22,9 +22,9 @@ namespace drive_const{
 namespace elevator_const{
     const pros::MotorGears gearset = pros::MotorGears::blue;
     const pros::MotorEncoderUnits units = pros::MotorEncoderUnits::degrees; //Setpoints in degrees
-    const int speed = 600;
+    const int speed = 650;
     const int slow_speed = 300;
-    const float PIDF[4] = {0.02, 0, 0, 0};
+    const float PIDF[4] = {0.003, 0, 0, 0};
 
     const float max_position = 3500; // Maximum position in degrees
     const float min_position = 0; // Minimum position in degrees
@@ -32,13 +32,23 @@ namespace elevator_const{
 
     const float setpoints[8] ={
         0, 
-        400, 
-        800, 
-        1200, 
-        1600, 
-        2000, 
-        2400, 
-        2800 
+        375, //1
+        1250, //1M
+        1300, //2
+        1840, //2M
+        2500, //3
+        2685, //3M
+        3250 //4
+    };
+    enum setpointEnum{
+        grab,
+        one,
+        oneM,
+        two,
+        twoM,
+        three,
+        threeM,
+        four
     };
 };
 
@@ -55,8 +65,9 @@ namespace feedout_const{
     const int speed = 600;
 };
 
-namespace distanceSensor_const{
+namespace claw_const{
     const float tolerance = 40; //Distance in mm
+    const float interpolation_window = 500; //in miliseconds
 };
 
 namespace color_const{
@@ -68,7 +79,7 @@ namespace color_const{
 
 namespace other_const{
     const std::string quotes[] = {
-        "I never feel more alone than when I'm trying to put sunscreen on my back. -Jimmy Kimmel",
+        "I never feel more alone than when \nI'm trying to put sunscreen on my back. -Jimmy Kimmel",
         "Whoever established the high road and \nhow high it should be should be fired. -Sandra Bullock",
         "I refuse to join any club that would \nhave me as a member. -Groucho Marx",
         "If you can't be kind, at least be vague.\n -Judith Martin",

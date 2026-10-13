@@ -2,6 +2,8 @@
 #include "constants.h"
 #include "api.h"
 
+using namespace TroLib;
+
 conveyor::conveyor(std::uint8_t port)
 : conveyorMotor(port, conveyor_const::gearset, conveyor_const::units)
 , mSlow(false)

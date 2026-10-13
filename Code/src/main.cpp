@@ -14,9 +14,9 @@
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 //conveyor mIntake(ports_const::intake);
-elevator mElevator(ports_const::left_elevator, ports_const::right_elevator, ports_const::elevator_third);
-piston mClaw('A');
-distanceSensor mDistanceSensor(ports_const::distance_sensor, distanceSensor_const::tolerance);
+TroLib::elevator mElevator(ports_const::left_elevator, ports_const::right_elevator, ports_const::elevator_third);
+TroLib::piston mClaw('A');
+TroLib::distanceSensor mDistanceSensor(ports_const::distance_sensor);
 
 lemlib::ControllerSettings lateral_controller(8, // proportional gain (kP)
                                               0, // integral gain (kI)
@@ -55,15 +55,15 @@ lemlib::Drivetrain drivetrain(&left_mg, // left motor group
 
 pros::Imu imu(ports_const::imu);
 
-pros::Rotation v_rotation_sensor(-6);
-pros::Rotation h_rotation_sensor(-7);
+pros::Rotation v_rotation_sensor(-7);
+pros::Rotation h_rotation_sensor(6);
 
 lemlib::TrackingWheel vertical_tracking_wheel(&v_rotation_sensor, lemlib::Omniwheel::NEW_2, -0.3);
 lemlib::TrackingWheel horizontal_tracking_wheel(&h_rotation_sensor, lemlib::Omniwheel::NEW_2, 2.5);
 
-lemlib::OdomSensors sensors(nullptr,//&vertical_tracking_wheel, // vertical tracking wheel 1
+lemlib::OdomSensors sensors(&vertical_tracking_wheel, // vertical tracking wheel 1
                             nullptr, // vertical tracking wheel 2
-                            nullptr,//&horizontal_tracking_wheel, // horizontal tracking wheel 1
+                            &horizontal_tracking_wheel, // horizontal tracking wheel 1
                             nullptr, // horizontal tracking wheel 2
 							&imu //inertia
 							);
@@ -93,17 +93,43 @@ void disabled() {}
 void competition_initialize() {}
 
 //Movement right before MUST be asynchronous
+TroLib::timer mAutoGrabTimer;
 void autoGrab(float timeout){
-	timer mTimer;
-	while(mTimer.time_has_passed(timeout) == false){
-		if(mDistanceSensor.getDigital()){
+	mAutoGrabTimer.reset();
+	while(!mAutoGrabTimer.time_has_passed(timeout)){
+		pros::delay(10);
+		if(mDistanceSensor.getDistance() < claw_const::tolerance){
 			mClaw.activate(false);
 			chassis.cancelMotion();
 			pros::delay(100);
 			break;
 		}
-		else{
-			pros::delay(20);
+	}
+}
+
+TroLib::timer mTeleopGrabTimer;
+bool mGrabEnded = false;
+void teleopGrab(float timeout){
+	if(!mGrabEnded){
+		if(mDistanceSensor.getDistance() < claw_const::tolerance){
+			mClaw.activate(false);
+			mGrabEnded = true;
+		}
+		if(mTeleopGrabTimer.time_has_passed(timeout)){
+			mGrabEnded = true;
+		}
+	}
+}
+
+void teleopGrabTask(void* param){
+	float timeout = 1000;
+	if(!mGrabEnded){
+		if(mDistanceSensor.getDistance() < claw_const::tolerance){
+			mClaw.activate(false);
+			mGrabEnded = true;
+		}
+		if(mTeleopGrabTimer.time_has_passed(timeout)){
+			mGrabEnded = true;
 		}
 	}
 }
@@ -114,13 +140,36 @@ enum type{
 	Test
 };
 
+enum matchType{
+	Far,
+	Close
+};
+
 // ----- ----- -----
 // CHECK EVERY TIME 
 // ----- ----- -----
-type mType = Match;
+type mType = Test;
+matchType mMatchType = Close;
 
 void runSkill() {
 	
+}
+
+void elevator_task_fn(void* param){
+	while(true){
+		mElevator.update();
+		pros::delay(10);
+	}
+}
+
+void auto_grab(void* param){
+	while(true){
+		if(mDistanceSensor.getDistance() < claw_const::tolerance){
+			mClaw.activate(false);
+			break;
+		}
+		pros::delay(10);
+	}
 }
 
 void autonomous() {
@@ -128,62 +177,109 @@ void autonomous() {
 		runSkill();
 	}
 	if(mType == Match){
-		mElevator.run(1);
-		chassis.moveToPoint(0, 5, 200, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(15, 14, 800, {.maxSpeed = 127}, true);
-		pros::delay(400);
-		mElevator.run(-1);
-		pros::delay(900);
-		mClaw.activate(true);
-		chassis.moveToPoint(1, 14, 400, {.forwards = false, .maxSpeed = 127}, false);
-		mElevator.run(0);
-		chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
-		pros::delay(200);
-		chassis.moveToPoint(0, -7, 1000, {.forwards = false,.maxSpeed = 127}, false);
+		int n = 0;
+		if(mMatchType == Far){
+			n = -1;
+		}
+		if(mMatchType == Close){
+			n = 1;
+		}
+		//pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 
-		chassis.moveToPoint(11, 25, 1000, {.maxSpeed = 127}, false);
-		chassis.moveToPoint(17, 31, 1000, {.maxSpeed = 50}, true);
-		autoGrab(600);
-		mElevator.run(1);
-		pros::delay(200);
-		chassis.turnToHeading(175, 700, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(34, 15, 1500, {.maxSpeed = 127}, true);
-		pros::delay(900);
-		mElevator.run(-1);
-		pros::delay(500);
-		mClaw.activate(true);
+		mElevator.goToSetpoint(elevator_const::two);
 
-		pros::delay(200);
-		mElevator.run(0);
-		chassis.moveToPoint(34, 20, 1500, {.forwards = false, .maxSpeed = 127}, false);
-		mElevator.run(-1);
-		chassis.turnToHeading(140, 1000, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(47, 9, 1500, {.maxSpeed = 127}, false);
-		chassis.moveToPoint(50, 6, 600, {.maxSpeed = 50}, true);
-		autoGrab(600);
-		chassis.moveToPoint(55, 2, 1500, {.maxSpeed = 50}, false);
-		mElevator.run(1);
-		chassis.turnToHeading(270, 1000, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(35, 0, 1500, {.maxSpeed = 127}, true);
+		//First Pin
+		chassis.moveToPoint(0, 2, 200, {.maxSpeed = 127}, true);
+		chassis.moveToPoint(15*n, 12, 1000, {.maxSpeed = 127}, true);
 		pros::delay(800);
-		mElevator.run(-1);
-		pros::delay(600);
+		mElevator.goToSetpoint(elevator_const::grab);
+		pros::delay(800);
 		mClaw.activate(true);
-		mElevator.run(0);
+		pros::delay(200);
+		chassis.moveToPoint(-5*n, 14, 600, {.forwards = false, .maxSpeed = 127}, false);
 
-		chassis.moveToPoint(45, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
+		//Second Pin
+		if(mMatchType == Far){
+			chassis.turnToHeading(360-45, 700, {.maxSpeed = 50}, false);
+		}
+		if(mMatchType == Close){
+			chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
+		}
+		chassis.moveToPoint(9*n, 33, 1000, {.maxSpeed = 80}, false);
+		autoGrab(1000);
+		//mClaw.activate(false);
+		pros::delay(200);
+		mElevator.goToSetpoint(elevator_const::three);
+		if(mMatchType == Far){
+			chassis.turnToHeading(360-180, 700, {.maxSpeed = 50}, false);
+		}
+		if(mMatchType == Close){
+			chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
+		}
+		chassis.moveToPoint(24*n, 14, 1500, {.maxSpeed = 80}, true);
+		pros::delay(400);
+		mElevator.goToSetpoint(elevator_const::grab);
+		pros::delay(400);
+		mClaw.activate(true);
+
+		//Toggle
+		chassis.moveToPoint(-10*n, 28, 1000, {.forwards = false, .maxSpeed = 127}, false);
+		chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
+		chassis.tank(-127, -127);
+		pros::delay(1200);
+		chassis.tank(127, 127);
+		pros::delay(400);
+		chassis.tank(-127, -127);
+		pros::delay(800);
+		chassis.tank(127, 127);
+		pros::delay(200);
+		chassis.tank(0, 0);
+		mElevator.goToSetpoint(elevator_const::grab);
+		// chassis.moveToPoint(0, -15, 1000, {.forwards = false, .minSpeed = 100}, false);
+		// pros::delay(500);
+		// chassis.moveToPoint(0, 10, 1000, {.forwards = true, .minSpeed = 100}, false);
+		// pros::delay(500);
+		// chassis.moveToPoint(0, -25, 1000, {.forwards = false, .minSpeed = 100}, false);
+
+		//Third Pin
+		// pros::delay(100);
+		// //chassis.moveToPoint(24*n, 30, 1500, {.forwards = false, .maxSpeed = 127}, false);
+		// if(mMatchType == Far){
+		// 	chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+		// }
+		// if(mMatchType == Close){
+		// 	chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
+		// }
+		// chassis.moveToPoint(41*n, 15, 1500, {.maxSpeed = 80}, false);
+		// chassis.moveToPoint(47*n, 9, 600, {.maxSpeed = 50}, true);
+		// //autoGrab(600);
+		// pros::delay(600);
+		// mClaw.activate(false);
+		// pros::delay(200);
+		// mElevator.goToSetpoint(elevator_const::four);
+		// if(mMatchType == Far){
+		// 	chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
+		// }
+		// if(mMatchType == Close){
+		// 	chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+		// }
+		// chassis.moveToPoint(28*n, 4, 1500, {.maxSpeed = 127}, true);
+		// pros::delay(600);
+		// mElevator.goToSetpoint(elevator_const::grab);
+		// pros::delay(200);
+		// mClaw.activate(true);
+		// pros::delay(100);
+
+		//Escape!!!
+		//chassis.moveToPoint(45*n, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
+
+		//elevator_task.remove();
 	}
 	if(mType == Test){
-		chassis.moveToPoint(0, 30, 3000, {.maxSpeed = 50}, true);
-		autoGrab(3000);
-		pros::delay(3000);
-		// chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
-		// chassis.moveToPoint(5, 5, 1000, {.maxSpeed = 50}, false);
-		// chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
-		// chassis.moveToPoint(5, 0, 1000, {.maxSpeed = 50}, false);
-		// chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
-		// chassis.moveToPoint(0, 0, 1000, {.maxSpeed = 50}, false);
-		// chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
+		//chassis.turnToHeading(270, 4000);
+		chassis.moveToPoint(-10, 30, 4000, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(-10, 15, 4000, {.forwards = false, .maxSpeed = 50}, false);
+		chassis.moveToPoint(70, 70, 4000, {.maxSpeed = 50}, false);
 	}
 }
 
@@ -204,14 +300,19 @@ void opcontrol() {
 	bool mUpLateState = false;
 	bool mDownLateState = false;
 
+	pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+
 	while (true) {
-		pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
+		//pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
 		//pros::lcd::set_text(1, "Elevator Target: " + std::to_string(mElevator.getTargetPosition()));
-		// pros::lcd::set_text(2, "Elevator Setpoint: " + std::to_string(mElevator.getCurrentSetpointIndex()));
+		//pros::lcd::set_text(2, "Elevator Setpoint: " + std::to_string(mElevator.getCurrentSetpointIndex()));
 		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mDistanceSensor.getDistance()));
 
-		//pros::lcd::print(1, "Rotation Sensor H: %i", h_rotation_sensor.get_position());
-		//pros::lcd::print(2, "Rotation Sensor V: %i", v_rotation_sensor.get_position());
+		//pros::lcd::print(1, "X: %f", chassis.getPose().x);
+		//pros::lcd::print(2, "Y: %f", chassis.getPose().y);
+
+		pros::lcd::print(1, "Distance: %.2f", mDistanceSensor.getDistance());
+		//pros::lcd::print(2, "Distance Bool: %s", (mDistanceSensor.getDigital() ? "true" : "false"));
 
 		int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
         int rightY = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_Y);
@@ -232,6 +333,12 @@ void opcontrol() {
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)){
 			mClaw.toggle();
 		}
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
+			//Resets everything for teleopGrab
+			mTeleopGrabTimer.reset();
+			mGrabEnded = false;
+		}
+		teleopGrab(3000);		
 
 		// Setpoint Elevator Control
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
@@ -240,10 +347,9 @@ void opcontrol() {
 		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
 			mElevator.incrementSetpoint(-1);
 		}
-		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)){
-			mElevator.goToSetpoint(0);
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)){
+			mElevator.goToSetpoint(elevator_const::grab);
 		}
-		mElevator.update();
 
 		// Manual Elevator Control
 		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
@@ -265,4 +371,6 @@ void opcontrol() {
 		
 		pros::delay(20);
 	}
+
+	elevator_task.remove();
 }

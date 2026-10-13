@@ -3,15 +3,21 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-class timer{
-public:
-    timer();
-    void reset();
-    float get_time();
-    bool time_has_passed(float time);
+namespace TroLib{
+    class timer{
+    public:
+        timer();
+        void reset();
+        float get_time();
+        bool time_has_passed(float time);
 
-private:
-    float mStartTime;
-};
+        void set_timer(float time);
+        bool timer_finnished();
+
+    private:
+        float mStartTime;
+        float mTimerSetFor;
+    };
+}
 
 #endif
