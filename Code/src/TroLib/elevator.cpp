@@ -2,6 +2,8 @@
 #include "constants.h"
 #include "api.h"
 
+using namespace TroLib;
+
 elevator::elevator(std::uint8_t left_port, std::uint8_t right_port, std::uint8_t third_port)
 : elevatorMotorLeft(left_port, elevator_const::gearset, elevator_const::units)
 , elevatorMotorRight(right_port, elevator_const::gearset, elevator_const::units)
@@ -36,6 +38,7 @@ void elevator::update()
         if(std::abs(error) < elevator_const::position_tolerance){ 
             elevatorMotorLeft.move_velocity(0);
             elevatorMotorRight.move_velocity(0);
+            elevatorMotorThird.move_velocity(0);
         } else {
             double output = mPID.getOutput(mCurrentPosition, mTargetPosition); // Assuming update is called every 20ms
             elevatorMotorLeft.move_velocity(output * elevator_const::speed);
@@ -113,6 +116,32 @@ void elevator::goToSetpoint(int setpoint_index)
 void elevator::incrementSetpoint(int setpoint_index_increment)
 {
     int newSetpointIndex = mCurrentSetpointIndex + setpoint_index_increment;
+    
+    //When switching from manual to auto, go to the closest setpoints rather than
+    //keep previous auto setpoints
+    // if(mMode == manual){
+    //     if(setpoint_index_increment > 0){
+    //         for(int i = std::size(elevator_const::setpoints) - 1; i >= 0; i--){
+    //             //Start at highest position and itterate downwards until you find a position bellow
+    //             //current. Then you know the position above it (+1) is the one above current
+    //             if(mCurrentPosition < elevator_const::setpoints[i]){
+    //                 newSetpointIndex = i + 1;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     if(setpoint_index_increment < 0){
+    //         for(int i = 0; i < std::size(elevator_const::setpoints); i++){
+    //             //Start at lowest position and itterate upwards until you find a position bellow
+    //             //current. Then you know the position above it (-1) is the one bellow current
+    //             if(mCurrentPosition > elevator_const::setpoints[i]){
+    //                 newSetpointIndex = i - 1;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
     if(newSetpointIndex >= 0 && newSetpointIndex < std::size(elevator_const::setpoints)){
         mMode = automatic;
         mTargetPosition = elevator_const::setpoints[newSetpointIndex];

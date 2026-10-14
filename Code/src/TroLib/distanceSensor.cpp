@@ -1,15 +1,19 @@
 #include "distanceSensor.h"
 
-distanceSensor::distanceSensor(std::uint8_t port, float tolerance) 
+#include "utility.h"
+
+using namespace TroLib;
+
+distanceSensor::distanceSensor(std::uint8_t port) 
 : mDistanceSensor(port)
-, mTolerance(tolerance) {
-    
+, mLastDistance(0) {
 }
 
 float distanceSensor::getDistance(){
-    return mDistanceSensor.get();
+    double distance = mDistanceSensor.get();
+    if(distance < 9999){
+        mLastDistance = distance;
+    }
+    return mLastDistance;
 }
 
-bool distanceSensor::getDigital(){
-    return mDistanceSensor.get() < mTolerance;
-}
