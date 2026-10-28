@@ -20,6 +20,10 @@ namespace TroLib{
         void autograb(float timeOut);
         void toggle();
         void activate(bool state);
+        double getDistance();
+        double getInterpolationDist();
+        std::string getMode();
+
 
     private:
         std::vector<std::pair<float, float>> distanceMessurements; //Distance, timestamp

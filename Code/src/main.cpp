@@ -10,13 +10,34 @@
 #include "TroLib/piston.h"
 #include "TroLib/distanceSensor.h"
 #include "TroLib/timer.h"
+#include "TroLib/claw.h"
+#include "TroLib/averageOverTime.h"
+
+float interpolator(std::vector<std::pair<float, float>> points, float interpolateTime)
+{
+    if (points.size() < 2)
+        return 10000;//throw std::invalid_argument("At least two points are required");
+
+    // Use the two most recent measurements.
+    const auto& p1 = points[points.size() - 2];
+    const auto& p2 = points[points.size() - 1];
+
+    if (p2.first == p1.first)
+        throw std::invalid_argument("Timestamps must be different");
+
+    // Calculate the rate of change per unit of time.
+    float slope = (p2.second - p1.second) /
+                  (p2.first - p1.first);
+
+    // Project the trend to the requested future time.
+    return p2.second + slope * (interpolateTime - p2.first);
+}
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 //conveyor mIntake(ports_const::intake);
 TroLib::elevator mElevator(ports_const::left_elevator, ports_const::right_elevator, ports_const::elevator_third);
-TroLib::piston mClaw('A');
-TroLib::distanceSensor mDistanceSensor(ports_const::distance_sensor);
+TroLib::claw mClaw(ports_const::distance_sensor, 'A');
 
 lemlib::ControllerSettings lateral_controller(8, // proportional gain (kP)
                                               0, // integral gain (kI)
@@ -92,48 +113,6 @@ void disabled() {}
 
 void competition_initialize() {}
 
-//Movement right before MUST be asynchronous
-TroLib::timer mAutoGrabTimer;
-void autoGrab(float timeout){
-	mAutoGrabTimer.reset();
-	while(!mAutoGrabTimer.time_has_passed(timeout)){
-		pros::delay(10);
-		if(mDistanceSensor.getDistance() < claw_const::tolerance){
-			mClaw.activate(false);
-			chassis.cancelMotion();
-			pros::delay(100);
-			break;
-		}
-	}
-}
-
-TroLib::timer mTeleopGrabTimer;
-bool mGrabEnded = false;
-void teleopGrab(float timeout){
-	if(!mGrabEnded){
-		if(mDistanceSensor.getDistance() < claw_const::tolerance){
-			mClaw.activate(false);
-			mGrabEnded = true;
-		}
-		if(mTeleopGrabTimer.time_has_passed(timeout)){
-			mGrabEnded = true;
-		}
-	}
-}
-
-void teleopGrabTask(void* param){
-	float timeout = 1000;
-	if(!mGrabEnded){
-		if(mDistanceSensor.getDistance() < claw_const::tolerance){
-			mClaw.activate(false);
-			mGrabEnded = true;
-		}
-		if(mTeleopGrabTimer.time_has_passed(timeout)){
-			mGrabEnded = true;
-		}
-	}
-}
-
 enum type{
 	Match,
 	Skills,
@@ -162,11 +141,20 @@ void elevator_task_fn(void* param){
 	}
 }
 
-void auto_grab(void* param){
+bool mGrabbing = false;
+std::vector<std::pair<float, float>> distanceMessurements;
+TroLib::averageOverTime mAverage(50);
+void claw_task_fn(void* param){
 	while(true){
-		if(mDistanceSensor.getDistance() < claw_const::tolerance){
-			mClaw.activate(false);
-			break;
+		double time = pros::millis();
+		mAverage.addMeasurement(time, mClaw.getDistance());
+		distanceMessurements.push_back(std::make_pair(time, mAverage.getAverage(time)));
+    
+		if(mGrabbing){
+			if(interpolator(distanceMessurements, 200) < claw_const::tolerance){
+				mClaw.activate(false);
+				mGrabbing = false;
+			}
 		}
 		pros::delay(10);
 	}
@@ -184,7 +172,8 @@ void autonomous() {
 		if(mMatchType == Close){
 			n = 1;
 		}
-		//pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
 		mElevator.goToSetpoint(elevator_const::two);
 
@@ -206,8 +195,7 @@ void autonomous() {
 			chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
 		}
 		chassis.moveToPoint(9*n, 33, 1000, {.maxSpeed = 80}, false);
-		autoGrab(1000);
-		//mClaw.activate(false);
+		mGrabbing = true;
 		pros::delay(200);
 		mElevator.goToSetpoint(elevator_const::three);
 		if(mMatchType == Far){
@@ -273,13 +261,18 @@ void autonomous() {
 		//Escape!!!
 		//chassis.moveToPoint(45*n, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
 
-		//elevator_task.remove();
+		elevator_task.remove();
+		claw_task.remove();
 	}
 	if(mType == Test){
-		//chassis.turnToHeading(270, 4000);
-		chassis.moveToPoint(-10, 30, 4000, {.maxSpeed = 50}, false);
-		chassis.moveToPoint(-10, 15, 4000, {.forwards = false, .maxSpeed = 50}, false);
-		chassis.moveToPoint(70, 70, 4000, {.maxSpeed = 50}, false);
+		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
+		
+		mGrabbing = true;
+		chassis.moveToPoint(0, 20, 4000, {.maxSpeed = 50}, false);
+		
+		elevator_task.remove();
+		claw_task.remove();
 	}
 }
 
@@ -301,17 +294,18 @@ void opcontrol() {
 	bool mDownLateState = false;
 
 	pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+	pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
 	while (true) {
-		//pros::lcd::set_text(0, "Elevator Position: " + std::to_string(mElevator.getCurrentPosition()));
-		//pros::lcd::set_text(1, "Elevator Target: " + std::to_string(mElevator.getTargetPosition()));
-		//pros::lcd::set_text(2, "Elevator Setpoint: " + std::to_string(mElevator.getCurrentSetpointIndex()));
+		pros::lcd::set_text(0, "Get Distance: " + std::to_string(interpolator(distanceMessurements, 100)));
+		//pros::lcd::set_text(1, "Get Interpolation Distance: " + std::to_string(mClaw.getInterpolationDist()));
+		//pros::lcd::set_text(2, "Get Mode: " + mClaw.getMode());
 		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mDistanceSensor.getDistance()));
 
 		//pros::lcd::print(1, "X: %f", chassis.getPose().x);
 		//pros::lcd::print(2, "Y: %f", chassis.getPose().y);
 
-		pros::lcd::print(1, "Distance: %.2f", mDistanceSensor.getDistance());
+		//pros::lcd::print(1, "Distance: %.2f", mDistanceSensor.getDistance());
 		//pros::lcd::print(2, "Distance Bool: %s", (mDistanceSensor.getDigital() ? "true" : "false"));
 
 		int leftY = controller.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
@@ -320,25 +314,14 @@ void opcontrol() {
         // move the robot
         chassis.tank(leftY, rightY);
 
-		// if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_A)){
-		// 	mIntake.run(1);
-		// }
-		// else if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_B)){
-		// 	mIntake.run(-1);
-		// }
-		// else{
-		// 	mIntake.run(0);
-		// }
-
+		// Claw Control
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)){
 			mClaw.toggle();
 		}
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
-			//Resets everything for teleopGrab
-			mTeleopGrabTimer.reset();
-			mGrabEnded = false;
-		}
-		teleopGrab(3000);		
+			mGrabbing = true;
+			//mClaw.autograb(5000);
+		}	
 
 		// Setpoint Elevator Control
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
@@ -373,4 +356,5 @@ void opcontrol() {
 	}
 
 	elevator_task.remove();
+	claw_task.remove();
 }
