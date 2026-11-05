@@ -13,24 +13,33 @@
 #include "TroLib/claw.h"
 #include "TroLib/averageOverTime.h"
 
-float interpolator(std::vector<std::pair<float, float>> points, float interpolateTime)
+float acceleration = 0;
+float lastKnownVelocity = 0;
+
+float time1 = 0;
+float distance1 = 0;
+float time2 = 0;
+float distance2 = 0;
+
+float interpolator(float interpolateTime)
 {
-    if (points.size() < 2)
-        return 10000;//throw std::invalid_argument("At least two points are required");
-
-    // Use the two most recent measurements.
-    const auto& p1 = points[points.size() - 2];
-    const auto& p2 = points[points.size() - 1];
-
-    if (p2.first == p1.first)
-        throw std::invalid_argument("Timestamps must be different");
+    if (time2 == time1)
+        return 1000;
 
     // Calculate the rate of change per unit of time.
-    float slope = (p2.second - p1.second) /
-                  (p2.first - p1.first);
+	float dt = time1 - time2;
+
+    float currentVelocity = (distance1 - distance2) /
+                  (dt);
+	acceleration = (currentVelocity - lastKnownVelocity) / (dt);
+	
+	lastKnownVelocity = currentVelocity;
 
     // Project the trend to the requested future time.
-    return p2.second + slope * (interpolateTime - p2.first);
+	float projectedTime = interpolateTime;
+
+	// Use the kinematic equation: s = s0 + v0*t + 0.5*a*t^2
+    return distance1 + currentVelocity * (projectedTime) + 0.5 * acceleration * (projectedTime * projectedTime);
 }
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
@@ -109,7 +118,10 @@ void initialize() {
 	chassis.setPose(0, 0, 0);
 }
 
-void disabled() {}
+void disabled() {
+	mElevator.run(0);
+	mClaw.activate(false);
+}
 
 void competition_initialize() {}
 
@@ -127,7 +139,7 @@ enum matchType{
 // ----- ----- -----
 // CHECK EVERY TIME 
 // ----- ----- -----
-type mType = Test;
+type mType = Match;
 matchType mMatchType = Close;
 
 void runSkill() {
@@ -143,20 +155,24 @@ void elevator_task_fn(void* param){
 
 bool mGrabbing = false;
 std::vector<std::pair<float, float>> distanceMessurements;
-TroLib::averageOverTime mAverage(50);
+TroLib::averageOverTime mAverage(claw_const::averaging_window);
 void claw_task_fn(void* param){
 	while(true){
 		double time = pros::millis();
 		mAverage.addMeasurement(time, mClaw.getDistance());
-		distanceMessurements.push_back(std::make_pair(time, mAverage.getAverage(time)));
-    
+		distance2 = distance1;
+		distance1 = mAverage.getAverage(time);
+		time2 = time1;
+		time1 = time;
+		
 		if(mGrabbing){
-			if(interpolator(distanceMessurements, 200) < claw_const::tolerance){
+			if(interpolator(claw_const::interpolation_window) < claw_const::tolerance){
 				mClaw.activate(false);
+				chassis.cancelAllMotions();
 				mGrabbing = false;
 			}
 		}
-		pros::delay(10);
+		pros::delay(5);
 	}
 }
 
@@ -175,16 +191,18 @@ void autonomous() {
 		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
-		mElevator.goToSetpoint(elevator_const::two);
+		//Toggle
+		mElevator.goToSetpoint(elevator_const::oneM);
+		pros::delay(400);
 
 		//First Pin
-		chassis.moveToPoint(0, 2, 200, {.maxSpeed = 127}, true);
+		chassis.moveToPoint(0, 2, 200, {.maxSpeed = 127}, false);
 		chassis.moveToPoint(15*n, 12, 1000, {.maxSpeed = 127}, true);
 		pros::delay(800);
 		mElevator.goToSetpoint(elevator_const::grab);
-		pros::delay(800);
+		pros::delay(600);
 		mClaw.activate(true);
-		pros::delay(200);
+		pros::delay(100);
 		chassis.moveToPoint(-5*n, 14, 600, {.forwards = false, .maxSpeed = 127}, false);
 
 		//Second Pin
@@ -194,72 +212,56 @@ void autonomous() {
 		if(mMatchType == Close){
 			chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
 		}
-		chassis.moveToPoint(9*n, 33, 1000, {.maxSpeed = 80}, false);
 		mGrabbing = true;
+		chassis.moveToPoint(9*n, 33, 1000, {.maxSpeed = 80}, false);
+		mElevator.goToSetpoint(elevator_const::two);
 		pros::delay(200);
-		mElevator.goToSetpoint(elevator_const::three);
 		if(mMatchType == Far){
 			chassis.turnToHeading(360-180, 700, {.maxSpeed = 50}, false);
 		}
 		if(mMatchType == Close){
 			chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
 		}
-		chassis.moveToPoint(24*n, 14, 1500, {.maxSpeed = 80}, true);
+		pros::delay(1000);
+
+		//Fix this stuff, this point needs to be changed.
+		chassis.moveToPoint(24*n, 14, 1500, {.maxSpeed = 50}, true);
 		pros::delay(400);
 		mElevator.goToSetpoint(elevator_const::grab);
 		pros::delay(400);
 		mClaw.activate(true);
 
-		//Toggle
-		chassis.moveToPoint(-10*n, 28, 1000, {.forwards = false, .maxSpeed = 127}, false);
-		chassis.turnToHeading(0, 700, {.maxSpeed = 50}, false);
-		chassis.tank(-127, -127);
-		pros::delay(1200);
-		chassis.tank(127, 127);
-		pros::delay(400);
-		chassis.tank(-127, -127);
-		pros::delay(800);
-		chassis.tank(127, 127);
-		pros::delay(200);
-		chassis.tank(0, 0);
-		mElevator.goToSetpoint(elevator_const::grab);
-		// chassis.moveToPoint(0, -15, 1000, {.forwards = false, .minSpeed = 100}, false);
-		// pros::delay(500);
-		// chassis.moveToPoint(0, 10, 1000, {.forwards = true, .minSpeed = 100}, false);
-		// pros::delay(500);
-		// chassis.moveToPoint(0, -25, 1000, {.forwards = false, .minSpeed = 100}, false);
-
 		//Third Pin
-		// pros::delay(100);
-		// //chassis.moveToPoint(24*n, 30, 1500, {.forwards = false, .maxSpeed = 127}, false);
-		// if(mMatchType == Far){
-		// 	chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
-		// }
-		// if(mMatchType == Close){
-		// 	chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
-		// }
-		// chassis.moveToPoint(41*n, 15, 1500, {.maxSpeed = 80}, false);
-		// chassis.moveToPoint(47*n, 9, 600, {.maxSpeed = 50}, true);
-		// //autoGrab(600);
-		// pros::delay(600);
-		// mClaw.activate(false);
-		// pros::delay(200);
-		// mElevator.goToSetpoint(elevator_const::four);
-		// if(mMatchType == Far){
-		// 	chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
-		// }
-		// if(mMatchType == Close){
-		// 	chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
-		// }
-		// chassis.moveToPoint(28*n, 4, 1500, {.maxSpeed = 127}, true);
-		// pros::delay(600);
-		// mElevator.goToSetpoint(elevator_const::grab);
-		// pros::delay(200);
-		// mClaw.activate(true);
-		// pros::delay(100);
+		pros::delay(100);
+		//chassis.moveToPoint(24*n, 30, 1500, {.forwards = false, .maxSpeed = 127}, false);
+		if(mMatchType == Far){
+			chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+		}
+		if(mMatchType == Close){
+			chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
+		}
+		chassis.moveToPoint(41*n, 15, 1500, {.maxSpeed = 80}, false);
+		chassis.moveToPoint(47*n, 9, 600, {.maxSpeed = 50}, true);
+		//autoGrab(600);
+		pros::delay(600);
+		mClaw.activate(false);
+		pros::delay(200);
+		mElevator.goToSetpoint(elevator_const::four);
+		if(mMatchType == Far){
+			chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
+		}
+		if(mMatchType == Close){
+			chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+		}
+		chassis.moveToPoint(28*n, 4, 1500, {.maxSpeed = 127}, true);
+		pros::delay(600);
+		mElevator.goToSetpoint(elevator_const::grab);
+		pros::delay(200);
+		mClaw.activate(true);
+		pros::delay(100);
 
 		//Escape!!!
-		//chassis.moveToPoint(45*n, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
+		chassis.moveToPoint(45*n, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
 
 		elevator_task.remove();
 		claw_task.remove();
@@ -268,8 +270,12 @@ void autonomous() {
 		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 		
+		mClaw.activate(true);
+		pros::delay(500);
 		mGrabbing = true;
-		chassis.moveToPoint(0, 20, 4000, {.maxSpeed = 50}, false);
+		chassis.moveToPoint(0, 30, 4000, {.maxSpeed = 50}, false);
+
+		pros::delay(10000);
 		
 		elevator_task.remove();
 		claw_task.remove();
@@ -297,7 +303,7 @@ void opcontrol() {
 	pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
 	while (true) {
-		pros::lcd::set_text(0, "Get Distance: " + std::to_string(interpolator(distanceMessurements, 100)));
+		pros::lcd::set_text(0, "Get Distance: " + std::to_string(interpolator(claw_const::interpolation_window)));
 		//pros::lcd::set_text(1, "Get Interpolation Distance: " + std::to_string(mClaw.getInterpolationDist()));
 		//pros::lcd::set_text(2, "Get Mode: " + mClaw.getMode());
 		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mDistanceSensor.getDistance()));
