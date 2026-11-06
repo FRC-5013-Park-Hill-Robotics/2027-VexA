@@ -330,15 +330,15 @@ void opcontrol() {
 		}	
 
 		// Setpoint Elevator Control
-		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
-			mElevator.incrementSetpoint(1);
-		}
-		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
-			mElevator.incrementSetpoint(-1);
-		}
-		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)){
-			mElevator.goToSetpoint(elevator_const::grab);
-		}
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+		// 	mElevator.incrementSetpoint(1);
+		// }
+		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
+		// 	mElevator.incrementSetpoint(-1);
+		// }
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)){
+		// 	mElevator.goToSetpoint(elevator_const::grab);
+		// }
 
 		// Manual Elevator Control
 		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
@@ -357,7 +357,16 @@ void opcontrol() {
 			mElevator.run(0);
 			mDownLateState = false;
 		}
-		
+
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+			pros::Motor toggle(19);
+			if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+				toggle.move(-127);
+			} else {
+				toggle.move(0);
+			}
+		}
+
 		pros::delay(20);
 	}
 
