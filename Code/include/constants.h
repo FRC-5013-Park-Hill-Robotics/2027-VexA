@@ -67,7 +67,8 @@ namespace feedout_const{
 
 namespace claw_const{
     const float tolerance = 40; //Distance in mm
-    const float interpolation_window = 500; //in miliseconds
+    const float interpolation_window = 15; //in milisecondsx
+    const float averaging_window = 10; //in miliseconds
 };
 
 namespace color_const{

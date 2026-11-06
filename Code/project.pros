@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "Far",
+    "project_name": "Close",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -635,9 +635,8 @@
       }
     },
     "upload_options": {
-      "icon": "pros",
-      "slot": 1,
-      "after": "screen"
+      "icon": "X",
+      "slot": 2
     },
     "use_early_access": false
   }
