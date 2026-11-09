@@ -22,7 +22,7 @@ elevator::elevator(std::uint8_t left_port, std::uint8_t right_port, std::uint8_t
 
     elevatorMotorLeft.set_reversed(false);
     elevatorMotorRight.set_reversed(true);
-    elevatorMotorThird.set_reversed(false);
+    elevatorMotorThird.set_reversed(true);
 
     mPID.setOutputLimits(-1, 1); // Never more that 100% power
 }
@@ -79,6 +79,18 @@ void elevator::run(int direction)
             elevatorMotorThird.move_velocity(-elevator_const::speed);
         }
     }
+}
+
+void TroLib::elevator::toggle()
+{
+    mMode = manual;
+    elevatorMotorThird.move_velocity(elevator_const::speed);
+}
+
+void TroLib::elevator::toggleTwice()
+{
+    mMode = manual;
+    elevatorMotorThird.move_relative(1600, 600);
 }
 
 int elevator::getRunning()
