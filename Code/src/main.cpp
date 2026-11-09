@@ -133,18 +133,16 @@ enum type{
 
 enum matchType{
 	Far,
-	Close
+	Close,
+	Far2pin,
+	Close2pin
 };
 
 // ----- ----- -----
 // CHECK EVERY TIME 
 // ----- ----- -----
 type mType = Match;
-matchType mMatchType = Close;
-
-void runSkill() {
-	
-}
+matchType mMatchType = Far2pin;
 
 void elevator_task_fn(void* param){
 	while(true){
@@ -153,27 +151,99 @@ void elevator_task_fn(void* param){
 	}
 }
 
-bool mGrabbing = false;
-std::vector<std::pair<float, float>> distanceMessurements;
-TroLib::averageOverTime mAverage(claw_const::averaging_window);
 void claw_task_fn(void* param){
 	while(true){
-		double time = pros::millis();
-		mAverage.addMeasurement(time, mClaw.getDistance());
-		distance2 = distance1;
-		distance1 = mAverage.getAverage(time);
-		time2 = time1;
-		time1 = time;
-		
-		if(mGrabbing){
-			if(interpolator(claw_const::interpolation_window) < claw_const::tolerance){
-				mClaw.activate(false);
-				chassis.cancelAllMotions();
-				mGrabbing = false;
-			}
-		}
-		pros::delay(5);
+		mClaw.update();
+		pros::delay(3);
 	}
+}
+
+
+void runSkill() {
+	// int n = 0;
+	// if(mMatchType == Far){
+	// 	n = -1;
+	// }
+	// if(mMatchType == Close){
+	// 	n = 1;
+	// }
+	// pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
+	// pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
+
+	// chassis.setPose(-2*n, 0, 0);
+
+	// //Toggle
+	// mElevator.toggleTwice();
+	// pros::delay(500);
+
+	// //First Pin
+	// chassis.moveToPoint(0, 2, 200, {.maxSpeed = 127}, false);
+	// mElevator.goToSetpoint(elevator_const::oneM);
+	// chassis.moveToPoint(12.5*n, 11, 1000, {.maxSpeed = 127}, true);
+	// pros::delay(800);
+	// mElevator.goToSetpoint(elevator_const::grab);
+	// pros::delay(600);
+	// mClaw.activate(true);
+	// pros::delay(100);
+	// mElevator.goToSetpoint(elevator_const::two);
+	// chassis.moveToPoint(-5*n, 14, 600, {.forwards = false, .maxSpeed = 127}, false);
+
+	// //Second Pin
+	// if(mMatchType == Far){
+	// 	chassis.turnToHeading(360-45, 700, {.maxSpeed = 50}, false);
+	// }
+	// if(mMatchType == Close){
+	// 	chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
+	// }
+	// mClaw.autograb(2000);
+	// chassis.moveToPoint(15*n, 35, 1500, {.maxSpeed = 50}, false);
+	// mElevator.goToSetpoint(elevator_const::two);
+	// pros::delay(200);
+	// if(mMatchType == Far){
+	// 	chassis.turnToHeading(360-180, 700, {.maxSpeed = 50}, false);
+	// }
+	// if(mMatchType == Close){
+	// 	chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
+	// }
+	// pros::delay(100);
+	// chassis.moveToPoint(20*n, 15, 1500, {.maxSpeed = 50}, true);
+	// pros::delay(900);
+	// mElevator.goToSetpoint(elevator_const::grab);
+	// pros::delay(300);
+	// mClaw.activate(true);
+
+	// //Third Pin
+	// pros::delay(200);
+	// chassis.moveToPoint(23*n, 36, 1500, {.forwards = false, .maxSpeed = 127}, false);
+	// if(mMatchType == Far){
+	// 	chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+	// }
+	// if(mMatchType == Close){
+	// 	chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
+	// }
+	// mClaw.autograb(2000);
+	// chassis.moveToPoint(43*n, 17, 1500, {.maxSpeed = 50}, false);
+	// pros::delay(500);
+	// mElevator.goToSetpoint(elevator_const::three);
+	// if(mMatchType == Far){
+	// 	chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
+	// }
+	// if(mMatchType == Close){
+	// 	chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+	// }
+	// chassis.moveToPoint(21*n, 13, 1500, {.maxSpeed = 40}, false);
+	// mElevator.goToSetpoint(elevator_const::one);
+	// pros::delay(400);
+	// mElevator.run(0);
+	// mClaw.activate(true);
+	// pros::delay(100);
+
+	// //Escape!!!
+	// chassis.moveToPoint(50*n, 5, 200, {.forwards = false, .maxSpeed = 127}, false); 
+	// chassis.moveToPoint(5*n, 55, 2000, {.forwards = false, .maxSpeed = 80}, false);
+
+	// elevator_task.remove();
+	// claw_task.remove();
 }
 
 void autonomous() {
@@ -182,87 +252,128 @@ void autonomous() {
 	}
 	if(mType == Match){
 		int n = 0;
-		if(mMatchType == Far){
+		if(mMatchType == Far || mMatchType == Far2pin){
 			n = -1;
 		}
-		if(mMatchType == Close){
+		if(mMatchType == Close || mMatchType == Close2pin){
 			n = 1;
 		}
 		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
+		chassis.setPose(-2*n, 0, 0);
+
 		//Toggle
-		mElevator.goToSetpoint(elevator_const::oneM);
-		pros::delay(400);
+		mElevator.toggleTwice();
+		pros::delay(500);
 
 		//First Pin
 		chassis.moveToPoint(0, 2, 200, {.maxSpeed = 127}, false);
-		chassis.moveToPoint(15*n, 12, 1000, {.maxSpeed = 127}, true);
+		mElevator.goToSetpoint(elevator_const::oneM);
+		chassis.moveToPoint(12.5*n, 11, 1000, {.maxSpeed = 127}, true);
 		pros::delay(800);
 		mElevator.goToSetpoint(elevator_const::grab);
 		pros::delay(600);
 		mClaw.activate(true);
 		pros::delay(100);
+		mElevator.goToSetpoint(elevator_const::two);
 		chassis.moveToPoint(-5*n, 14, 600, {.forwards = false, .maxSpeed = 127}, false);
 
-		//Second Pin
-		if(mMatchType == Far){
-			chassis.turnToHeading(360-45, 700, {.maxSpeed = 50}, false);
-		}
-		if(mMatchType == Close){
-			chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
-		}
-		mGrabbing = true;
-		chassis.moveToPoint(9*n, 33, 1000, {.maxSpeed = 80}, false);
-		mElevator.goToSetpoint(elevator_const::two);
-		pros::delay(200);
-		if(mMatchType == Far){
-			chassis.turnToHeading(360-180, 700, {.maxSpeed = 50}, false);
-		}
-		if(mMatchType == Close){
-			chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
-		}
-		pros::delay(1000);
+		if(mMatchType == Close || mMatchType == Far){
+			//Second Pin
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-45, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(45, 700, {.maxSpeed = 50}, false);
+			}
+			mClaw.autograb(2000);
+			chassis.moveToPoint(15*n, 35, 1500, {.maxSpeed = 50}, false);
+			mElevator.goToSetpoint(elevator_const::two);
+			pros::delay(200);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-180, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(180, 700, {.maxSpeed = 50}, false);
+			}
+			pros::delay(100);
+			chassis.moveToPoint(20*n, 15, 1500, {.maxSpeed = 50}, true);
+			pros::delay(900);
+			mElevator.goToSetpoint(elevator_const::grab);
+			pros::delay(300);
+			mClaw.activate(true);
 
-		//Fix this stuff, this point needs to be changed.
-		chassis.moveToPoint(24*n, 14, 1500, {.maxSpeed = 50}, true);
-		pros::delay(400);
-		mElevator.goToSetpoint(elevator_const::grab);
-		pros::delay(400);
-		mClaw.activate(true);
+			//Third Pin
+			pros::delay(200);
+			chassis.moveToPoint(23*n, 36, 1500, {.forwards = false, .maxSpeed = 127}, false);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
+			}
+			mClaw.autograb(2000);
+			chassis.moveToPoint(43*n, 17, 1500, {.maxSpeed = 50}, false);
+			pros::delay(500);
+			mElevator.goToSetpoint(elevator_const::three);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
+			}
+			chassis.moveToPoint(21*n, 13, 1500, {.maxSpeed = 40}, false);
+			mElevator.goToSetpoint(elevator_const::one);
+			pros::delay(400);
+			mElevator.run(0);
+			mClaw.activate(true);
+			pros::delay(100);
 
-		//Third Pin
-		pros::delay(100);
-		//chassis.moveToPoint(24*n, 30, 1500, {.forwards = false, .maxSpeed = 127}, false);
-		if(mMatchType == Far){
-			chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+			//Escape!!!
+			chassis.moveToPoint(45*n, 5, 200, {.forwards = false, .maxSpeed = 127}, true);
+		}	
+		if(mMatchType == Close2pin || mMatchType == Far2pin){
+			mElevator.goToSetpoint(elevator_const::grab);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-135, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
+			}
+			chassis.moveToPoint(9.5*n, 5, 1000, {.maxSpeed = 50}, false);
+			chassis.moveToPoint(10*n, 0, 1000, {.maxSpeed = 50}, false);
+			chassis.moveToPoint(11.5*n, -5, 1000, {.maxSpeed = 40}, false);
+			chassis.moveToPoint(11*n, -8, 1000, {.maxSpeed = 80}, false);
+			mClaw.activate(false);
+			pros::delay(200);
+			mElevator.goToSetpoint(elevator_const::two);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-90, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
+			}
+			chassis.moveToPoint(11.5*n, 5, 1000, {.forwards = false, .maxSpeed = 80}, false);
+			chassis.moveToPoint(-5*n, 17, 1500, {.forwards = false, .maxSpeed = 80}, false);
+			if(mMatchType == Far){
+				chassis.turnToHeading(360-90, 700, {.maxSpeed = 50}, false);
+			}
+			if(mMatchType == Close){
+				chassis.turnToHeading(90, 700, {.maxSpeed = 50}, false);
+			}
+			
+			//place
+			chassis.moveToPoint(12.5*n, 14, 1000, {.maxSpeed = 80}, true);
+			pros::delay(800);
+			mElevator.goToSetpoint(elevator_const::grab);
+			pros::delay(600);
+			mClaw.activate(true);
+			pros::delay(100);
+			//mElevator.goToSetpoint(elevator_const::two);
+			chassis.moveToPoint(-5*n, 14, 600, {.forwards = false, .maxSpeed = 127}, false);	
 		}
-		if(mMatchType == Close){
-			chassis.turnToHeading(135, 700, {.maxSpeed = 50}, false);
-		}
-		chassis.moveToPoint(41*n, 15, 1500, {.maxSpeed = 80}, false);
-		chassis.moveToPoint(47*n, 9, 600, {.maxSpeed = 50}, true);
-		//autoGrab(600);
-		pros::delay(600);
-		mClaw.activate(false);
-		pros::delay(200);
-		mElevator.goToSetpoint(elevator_const::four);
-		if(mMatchType == Far){
-			chassis.turnToHeading(360-270, 700, {.maxSpeed = 50}, false);
-		}
-		if(mMatchType == Close){
-			chassis.turnToHeading(270, 700, {.maxSpeed = 50}, false);
-		}
-		chassis.moveToPoint(28*n, 4, 1500, {.maxSpeed = 127}, true);
-		pros::delay(600);
-		mElevator.goToSetpoint(elevator_const::grab);
-		pros::delay(200);
-		mClaw.activate(true);
-		pros::delay(100);
-
-		//Escape!!!
-		chassis.moveToPoint(45*n, 5, 1500, {.forwards = false, .maxSpeed = 127}, true);
-
+ 
 		elevator_task.remove();
 		claw_task.remove();
 	}
@@ -270,12 +381,12 @@ void autonomous() {
 		pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 		pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 		
-		mClaw.activate(true);
-		pros::delay(500);
-		mGrabbing = true;
-		chassis.moveToPoint(0, 30, 4000, {.maxSpeed = 50}, false);
-
-		pros::delay(10000);
+		mElevator.toggleTwice();
+		pros::delay(4000);
+		// mClaw.activate(true);
+		// pros::delay(500);
+		// mClaw.autograb(2000);
+		// chassis.moveToPoint(0, 30, 4000, {.maxSpeed = 50}, true);
 		
 		elevator_task.remove();
 		claw_task.remove();
@@ -296,14 +407,19 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+	if(mType == Skills){
+		runSkill();
+	}
+
 	bool mUpLateState = false;
 	bool mDownLateState = false;
+	bool mToggleLateState = false;
 
 	pros::Task elevator_task(elevator_task_fn, nullptr, "Elevator Task");
 	pros::Task claw_task(claw_task_fn, nullptr, "Claw Task");
 
 	while (true) {
-		pros::lcd::set_text(0, "Get Distance: " + std::to_string(interpolator(claw_const::interpolation_window)));
+		//pros::lcd::set_text(0, "Get Distance: " + std::to_string(interpolator(claw_const::interpolation_window)));
 		//pros::lcd::set_text(1, "Get Interpolation Distance: " + std::to_string(mClaw.getInterpolationDist()));
 		//pros::lcd::set_text(2, "Get Mode: " + mClaw.getMode());
 		//pros::lcd::set_text(3, "GoToPose: " + std::to_string(mDistanceSensor.getDistance()));
@@ -324,19 +440,22 @@ void opcontrol() {
 		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_B)){
 			mClaw.toggle();
 		}
-		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
-			mGrabbing = true;
-			//mClaw.autograb(5000);
-		}	
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_Y)){
+		// 	mClaw.autograb(2000);
+		// }	
 
 		// Setpoint Elevator Control
-		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
-			mElevator.incrementSetpoint(1);
-		}
-		else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
-			mElevator.incrementSetpoint(-1);
-		}
-		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)){
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+		// 	mElevator.incrementSetpoint(1);
+		// }
+		// else if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R2)){
+		// 	mElevator.incrementSetpoint(-1);
+		// }
+		// if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_DOWN)){
+		// 	mElevator.goToSetpoint(elevator_const::grab);
+		// }
+
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
 			mElevator.goToSetpoint(elevator_const::grab);
 		}
 
@@ -349,6 +468,10 @@ void opcontrol() {
 			mElevator.run(-1);
 			mDownLateState = true;
 		}
+		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){
+			mElevator.toggle();
+			mToggleLateState = true;
+		}
 		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1) && mUpLateState){
 			mElevator.run(0);
 			mUpLateState = false;
@@ -356,6 +479,10 @@ void opcontrol() {
 		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_L2) && mDownLateState){
 			mElevator.run(0);
 			mDownLateState = false;
+		}
+		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1) && mToggleLateState){
+			mElevator.run(0);
+			mToggleLateState = false;
 		}
 		
 		pros::delay(20);

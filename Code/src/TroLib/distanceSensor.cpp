@@ -10,7 +10,7 @@ distanceSensor::distanceSensor(std::uint8_t port)
 }
 
 float distanceSensor::getDistance(){
-    double distance = mDistanceSensor.get();
+    float distance = mDistanceSensor.get();
     if(distance < 9999){
         mLastDistance = distance;
     }
