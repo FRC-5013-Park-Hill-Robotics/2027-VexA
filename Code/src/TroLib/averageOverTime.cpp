@@ -12,6 +12,11 @@ void averageOverTime::addMeasurement(float timestamp, float value) {
 }
 
 float averageOverTime::getAverage(float currentTime) {
+    //Remove Extranious Points
+    while (!mMeasurements.empty() && mMeasurements.front().first < currentTime - mTimeWindow) {
+        mMeasurements.erase(mMeasurements.begin());
+    }
+
     float sum = 0.0f;
     int count = 0;
 

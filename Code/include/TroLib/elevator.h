@@ -16,6 +16,8 @@ namespace TroLib{
         elevator(std::uint8_t left_port, std::uint8_t right_port, std::uint8_t third_port);
         void update();
         void run(int direction);
+        void toggle();
+        void toggleTwice();
         int getRunning();
         void slow(bool pSlow);
 

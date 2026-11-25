@@ -81,6 +81,18 @@ void elevator::run(int direction)
     }
 }
 
+void TroLib::elevator::toggle()
+{
+    mMode = manual;
+    elevatorMotorThird.move_velocity(elevator_const::speed);
+}
+
+void TroLib::elevator::toggleTwice()
+{
+    mMode = manual;
+    elevatorMotorThird.move_relative(1600, 600);
+}
+
 int elevator::getRunning()
 {
     return mRunning;

@@ -33,10 +33,10 @@ namespace elevator_const{
     const float setpoints[8] ={
         0, 
         375, //1
-        1250, //1M
+        1000, //1M
         1300, //2
         1840, //2M
-        2500, //3
+        2100, //3
         2685, //3M
         3250 //4
     };
@@ -67,7 +67,7 @@ namespace feedout_const{
 
 namespace claw_const{
     const float tolerance = 40; //Distance in mm
-    const float interpolation_window = 15; //in milisecondsx
+    const float interpolation_window = 12; //in milisecondsx
     const float averaging_window = 10; //in miliseconds
 };
 

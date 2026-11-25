@@ -1,7 +1,7 @@
 {
   "py/object": "pros.conductor.project.Project",
   "py/state": {
-    "project_name": "Close",
+    "project_name": "FarAlliance",
     "target": "v5",
     "templates": {
       "LemLib": {
@@ -636,7 +636,7 @@
     },
     "upload_options": {
       "icon": "X",
-      "slot": 2
+      "slot": 5
     },
     "use_early_access": false
   }
