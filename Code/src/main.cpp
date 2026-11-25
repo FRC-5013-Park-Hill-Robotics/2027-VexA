@@ -455,10 +455,6 @@ void opcontrol() {
 		// 	mElevator.goToSetpoint(elevator_const::grab);
 		// }
 
-		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
-			mElevator.goToSetpoint(elevator_const::grab);
-		}
-
 		// Manual Elevator Control
 		if(controller.get_digital(pros::E_CONTROLLER_DIGITAL_L1)){
 			mElevator.run(1);
@@ -480,11 +476,16 @@ void opcontrol() {
 			mElevator.run(0);
 			mDownLateState = false;
 		}
-		if(!controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1) && mToggleLateState){
-			mElevator.run(0);
-			mToggleLateState = false;
+
+		if(controller.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_R1)){
+			pros::Motor toggle(19);
+			if (controller.get_digital(pros::E_CONTROLLER_DIGITAL_R1)) {
+				toggle.move(-127);
+			} else {
+				toggle.move(0);
+			}
 		}
-		
+
 		pros::delay(20);
 	}
 
